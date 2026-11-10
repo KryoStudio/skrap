@@ -94,6 +94,19 @@ pub fn clean(
             continue;
         }
         if let Some(special) = rule.special {
+            // Emptied through Windows, all at once: only if it still holds exactly what the scan
+            // showed. Anything deleted since would go without being seen.
+            if ctx.specials.measure(special) != Some((finding.bytes, finding.files)) {
+                fail(
+                    &rule.id,
+                    FailReason::Changed,
+                    finding.files,
+                    finding.bytes,
+                    None,
+                );
+                progress.step_done();
+                continue;
+            }
             match ctx.specials.clean(special) {
                 Ok(()) => {
                     report.freed += finding.bytes;
@@ -309,5 +322,40 @@ mod tests {
         let report = clean(&rules, &findings, &s.ctx, &s.reserve, &Progress::new());
         assert_eq!(report.failures[0].reason, FailReason::Protected);
         assert!(s.base.join("Cache/Keep/a").exists());
+    }
+
+    struct Bin(std::sync::Mutex<(u64, u64)>, std::sync::atomic::AtomicBool);
+
+    impl crate::Specials for std::sync::Arc<Bin> {
+        fn measure(&self, _: crate::Special) -> Option<(u64, u64)> {
+            Some(*self.0.lock().unwrap())
+        }
+        fn clean(&self, _: crate::Special) -> Result<(), String> {
+            self.1.store(true, std::sync::atomic::Ordering::SeqCst);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn the_recycle_bin_is_only_emptied_as_the_scan_saw_it() {
+        let mut s = setup();
+        let bin = std::sync::Arc::new(Bin(std::sync::Mutex::new((100, 2)), Default::default()));
+        s.ctx.specials = Box::new(bin.clone());
+        let mut r = rule("system.windows.recycle_bin", &[]);
+        r.special = Some(crate::Special::RecycleBin);
+        r.risk = Risk::Review;
+        let rules = RuleSet::new(vec![r]).unwrap();
+        let found = scan(&rules, &|_| true, &s.ctx, &Progress::new());
+        // Something new went to the bin after the scan: it is not emptied.
+        *bin.0.lock().unwrap() = (150, 3);
+        let findings: Vec<&Finding> = found.findings.iter().collect();
+        let report = clean(&rules, &findings, &s.ctx, &s.reserve, &Progress::new());
+        assert_eq!(report.failures[0].reason, FailReason::Changed);
+        assert!(!bin.1.load(std::sync::atomic::Ordering::SeqCst));
+        // As the scan saw it: emptied.
+        *bin.0.lock().unwrap() = (100, 2);
+        let report = clean(&rules, &findings, &s.ctx, &s.reserve, &Progress::new());
+        assert_eq!(report.freed, 100);
+        assert!(bin.1.load(std::sync::atomic::Ordering::SeqCst));
     }
 }

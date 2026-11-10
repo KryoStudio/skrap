@@ -51,7 +51,7 @@ jobs:
         run: npm ci
 
       # Unsigned: build, sign the update files and draft the release in one go.
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@v1
         id: tauri
         if: vars.SIGNPATH_ORGANIZATION_ID == ''
         env:

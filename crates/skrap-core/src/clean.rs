@@ -171,11 +171,21 @@ pub fn clean(
         }
 
         // Folders emptied by the clean (or already empty) go as well; the targets themselves,
-        // and anything protected or excluded, stay.
+        // anything protected or excluded, and, for a rule with an age, folders younger than it
+        // (an install in progress may need them), stay.
         let excludes = expand_excludes(&rule.exclude, ctx);
+        let min_age = rule.older_than_hours.map(u64::from);
+        let young = |dir: &std::path::Path| {
+            min_age.is_some_and(|min| {
+                fs::symlink_metadata(dir)
+                    .ok()
+                    .and_then(|m| fsx::age_hours(&m, ctx.now))
+                    .is_none_or(|age| age < min)
+            })
+        };
         for root in &finding.roots {
             fsx::remove_empty_dirs(root, &|dir| {
-                ctx.protected.covers(dir) || pattern::excluded(dir, &excludes)
+                ctx.protected.covers(dir) || pattern::excluded(dir, &excludes) || young(dir)
             });
         }
         progress.step_done();

@@ -341,4 +341,24 @@ mod tests {
         assert!(report.cancelled);
         assert!(report.findings.is_empty());
     }
+
+    #[test]
+    fn age_counts_from_when_a_file_arrived() {
+        // An extractor keeps the archive's old write time: the file is new all the same.
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("setup.dll");
+        let f = fs::File::create(&file).unwrap();
+        f.set_modified(SystemTime::now() - Duration::from_secs(400 * 24 * 3600))
+            .unwrap();
+        drop(f);
+        let ctx = context(&[("TEMP", &dir.path().display().to_string())]);
+        let mut r = rule("system.test.temp", &[r"%TEMP%\*"]);
+        r.older_than_hours = Some(24);
+        let rules = RuleSet::new(vec![r]).unwrap();
+        assert!(
+            scan(&rules, &|_| true, &ctx, &Progress::new())
+                .findings
+                .is_empty()
+        );
+    }
 }

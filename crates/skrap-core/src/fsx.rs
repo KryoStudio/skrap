@@ -29,12 +29,15 @@ pub fn modified_ms(meta: &Metadata) -> Option<u64> {
     meta.modified().ok().map(unix_ms)
 }
 
+/// Hours since the file was last written or created, whichever is later. Extractors (7-Zip,
+/// installers, a zip opened in Explorer) keep the archive's old write times: only the creation
+/// time says that the files of an install in progress are new.
 pub fn age_hours(meta: &Metadata, now: SystemTime) -> Option<u64> {
     let modified = meta.modified().ok()?;
-    Some(
-        now.duration_since(modified)
-            .map_or(0, |d| d.as_secs() / 3600),
-    )
+    let newest = meta
+        .created()
+        .map_or(modified, |created| created.max(modified));
+    Some(now.duration_since(newest).map_or(0, |d| d.as_secs() / 3600))
 }
 
 /// Why a file could not be cleaned or restored.

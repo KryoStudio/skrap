@@ -57,6 +57,7 @@ group = { en = "NVIDIA", fr = "NVIDIA" }
 name = { en = "Driver installer leftovers", fr = "Restes d'installation du pilote" }
 explain = { en = "The unpacked copy of a driver installer, left on the disk once the driver is in place.", fr = "La copie décompressée d'un installateur de pilote, restée sur le disque une fois le pilote installé." }
 paths = ['%SYSTEMDRIVE%\NVIDIA']
+older_than_hours = 24
 admin = true
 
 [[rule]]
@@ -67,6 +68,7 @@ group = { en = "AMD", fr = "AMD" }
 name = { en = "Driver installer leftovers", fr = "Restes d'installation du pilote" }
 explain = { en = "The unpacked copy of a driver installer, left on the disk once the driver is in place.", fr = "La copie décompressée d'un installateur de pilote, restée sur le disque une fois le pilote installé." }
 paths = ['%SYSTEMDRIVE%\AMD']
+older_than_hours = 24
 admin = true
 
 [[rule]]

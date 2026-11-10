@@ -43,17 +43,61 @@ pub fn matches(pattern: &str, name: &str) -> bool {
 }
 
 /// Replaces the leading `%VARIABLE%`. `None` when the variable is unknown on this PC (its app or
-/// folder is not there), which simply means the pattern names nothing.
+/// folder is not there) or its value is not one Skrap trusts ([`sane_value`]), which simply
+/// means the pattern names nothing.
 pub fn expand(pattern: &str, ctx: &Context) -> Option<String> {
     let Some(rest) = pattern.strip_prefix('%') else {
         return Some(pattern.to_owned());
     };
     let (name, rest) = rest.split_once('%')?;
-    let value = ctx.var(name)?;
-    if value.is_empty() {
+    let value = ctx.var(name)?.trim_end_matches(['\\', '/']);
+    if !sane_value(name, value, ctx) {
         return None;
     }
-    Some(format!("{}{rest}", value.trim_end_matches(['\\', '/'])))
+    Some(format!("{value}{rest}"))
+}
+
+/// A folder variable's value is only used when it is a plain absolute path on a drive: no `.`
+/// or `..`, and never a whole drive except `%SYSTEMDRIVE%` itself (rules name a folder after
+/// it). A junk folder (`%TEMP%`, whose whole content can go) must also be at least two folders
+/// deep and must not be, or hold, another known folder or a protected one: a TEMP set to the
+/// profile or to `C:\` would otherwise sweep it.
+fn sane_value(name: &str, value: &str, ctx: &Context) -> bool {
+    let parts: Vec<&str> = value.split(['\\', '/']).collect();
+    let on_a_drive = parts[0].len() == 2
+        && parts[0].ends_with(':')
+        && parts[0].as_bytes()[0].is_ascii_alphabetic();
+    if !on_a_drive
+        || parts[1..]
+            .iter()
+            .any(|p| p.is_empty() || *p == "." || *p == "..")
+    {
+        return false;
+    }
+    if name.eq_ignore_ascii_case("SYSTEMDRIVE") {
+        return parts.len() == 1;
+    }
+    if parts.len() < 2 {
+        return false;
+    }
+    if !crate::rule::is_junk_root(name) {
+        return true;
+    }
+    let normal = |s: &str| s.replace('/', "\\").trim_end_matches('\\').to_lowercase();
+    let mine = normal(value);
+    let holds = |other: &str| {
+        let other = normal(other);
+        other == mine || other.starts_with(&format!("{mine}\\"))
+    };
+    let path = Path::new(value);
+    parts.len() >= 3
+        && !ctx.protected.covers(path)
+        && !ctx.protected.inside(path)
+        && crate::rule::VARIABLES
+            .iter()
+            .filter(|(_, junk)| !junk)
+            .filter_map(|(known, _)| ctx.var(known))
+            .all(|other| !holds(other))
 }
 
 /// The existing files and folders an expanded pattern names. Wildcards can be in any part; no
@@ -197,5 +241,45 @@ mod tests {
         assert!(!excluded(path, &["*.tmp".into()]));
         assert!(excluded(path, &[r"C:\cache\data\*".into()]));
         assert!(!excluded(path, &[r"C:\cache\other\*".into()]));
+    }
+
+    #[test]
+    fn untrusted_variable_values_name_nothing() {
+        let mut ctx = context(&[
+            ("USERPROFILE", r"C:\Users\me"),
+            ("LOCALAPPDATA", r"C:\Users\me\AppData\Local"),
+            ("SYSTEMDRIVE", "C:"),
+        ]);
+        let temp = |ctx: &mut Context, value: &str| {
+            ctx.vars.insert("TEMP".into(), value.into());
+            expand(r"%TEMP%\*", ctx)
+        };
+        assert_eq!(
+            temp(&mut ctx, r"C:\Users\me\AppData\Local\Temp").as_deref(),
+            Some(r"C:\Users\me\AppData\Local\Temp\*")
+        );
+        // A TEMP that is, or holds, the profile or a known folder; a drive; `..`; relative.
+        for bad in [
+            r"C:\",
+            "C:",
+            r"C:\Users",
+            r"C:\Users\me",
+            r"C:\Users\me\AppData\Local",
+            r"C:\Users\me\AppData\Local\Temp\..",
+            "Temp",
+            r"\server\share\temp",
+        ] {
+            assert_eq!(temp(&mut ctx, bad), None, "{bad}");
+        }
+        // A protected folder inside it.
+        ctx.protected = crate::Protected::new([std::path::PathBuf::from(r"C:\Scratch\Work\Docs")]);
+        assert_eq!(temp(&mut ctx, r"C:\Scratch\Work"), None);
+        // SYSTEMDRIVE is a drive by design; other variables are not.
+        assert_eq!(
+            expand(r"%SYSTEMDRIVE%\NVIDIA", &ctx).as_deref(),
+            Some(r"C:\NVIDIA")
+        );
+        ctx.vars.insert("LOCALAPPDATA".into(), r"C:\".into());
+        assert_eq!(expand(r"%LOCALAPPDATA%\NVIDIA", &ctx), None);
     }
 }

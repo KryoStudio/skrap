@@ -102,7 +102,7 @@ pub enum RuleError {
 /// Folder variables a rule can start from. The ones marked junk are junk as a whole, so a
 /// wildcard may follow them directly (`%TEMP%\*`); any other needs a named folder first, so that
 /// no rule can sweep a whole profile.
-const VARIABLES: &[(&str, bool)] = &[
+pub(crate) const VARIABLES: &[(&str, bool)] = &[
     ("TEMP", true),
     ("TMP", true),
     ("LOCALAPPDATA", false),
@@ -116,6 +116,13 @@ const VARIABLES: &[(&str, bool)] = &[
     ("PROGRAMFILES(X86)", false),
     ("STEAM", false),
 ];
+
+/// Whether a variable names a folder that is junk as a whole (`%TEMP%`).
+pub(crate) fn is_junk_root(name: &str) -> bool {
+    VARIABLES
+        .iter()
+        .any(|(known, junk)| *junk && known.eq_ignore_ascii_case(name))
+}
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

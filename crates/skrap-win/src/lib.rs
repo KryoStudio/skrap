@@ -65,6 +65,13 @@ pub fn variables() -> HashMap<String, String> {
     if let Some(steam) = steam_folder() {
         vars.insert("STEAM".into(), steam.display().to_string());
     }
+    // Folders as they really are: long names instead of 8.3 ones (`C:\Users\JEAN-P~1`),
+    // junctions followed, so they compare with the protected folders, resolved the same way.
+    for name in FOLDER_VARIABLES {
+        if let Some(value) = vars.get_mut(*name) {
+            *value = real_path(Path::new(value.as_str())).display().to_string();
+        }
+    }
     vars
 }
 
@@ -101,7 +108,41 @@ pub fn protected_folders() -> Vec<PathBuf> {
     // The Krak library, wherever the user put it.
     folders.extend(krak_library());
     folders.retain(|folder| folder.is_absolute());
+    // Each folder both as written and as it really is (short names, junctions resolved).
+    let real: Vec<PathBuf> = folders.iter().map(|f| real_path(f)).collect();
+    folders.extend(real);
     folders
+}
+
+/// The folder variables rules start from (`%SYSTEMDRIVE%` aside: a bare drive).
+const FOLDER_VARIABLES: &[&str] = &[
+    "TEMP",
+    "TMP",
+    "LOCALAPPDATA",
+    "LOCALAPPDATALOW",
+    "APPDATA",
+    "PROGRAMDATA",
+    "USERPROFILE",
+    "WINDIR",
+    "PROGRAMFILES",
+    "PROGRAMFILES(X86)",
+    "STEAM",
+];
+
+/// `path` with its long names and its junctions resolved, without the `\\?\` prefix; as is
+/// when it does not exist.
+pub fn real_path(path: &Path) -> PathBuf {
+    let Ok(real) = std::fs::canonicalize(path) else {
+        return path.to_path_buf();
+    };
+    let text = real.to_string_lossy();
+    if let Some(unc) = text.strip_prefix(r"\\?\UNC\") {
+        PathBuf::from(format!(r"\\{unc}"))
+    } else if let Some(local) = text.strip_prefix(r"\\?\") {
+        PathBuf::from(local)
+    } else {
+        real
+    }
 }
 
 /// Executable names of the running programs, in lower case.

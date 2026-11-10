@@ -1,0 +1,278 @@
+# Push a tag like v0.2.0 (the version of `node scripts/version.mjs check`): this builds the
+# installer on GitHub's own machines, signs the update files and drafts a GitHub release with
+# latest.json, which the app's updater reads. Publishing the draft is what ships the update.
+# See docs/RELEASING.md.
+#
+# Secrets needed: TAURI_SIGNING_PRIVATE_KEY (and TAURI_SIGNING_PRIVATE_KEY_PASSWORD if the key has
+# one).
+#
+# Optional, off until configured (docs/SIGNING.md):
+# - VirusTotal: with a VT_API_KEY secret, the installer is scanned and the release notes link the
+#   report. The notes always get the installer's SHA-256.
+# - Windows code signing by SignPath: with a SIGNPATH_ORGANIZATION_ID repository variable (and the
+#   SIGNPATH_API_TOKEN secret), skrap.exe and then the installer are signed before they are
+#   published, and the updater's signature is made for the signed installer.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  # Lets SignPath fetch the artifacts it signs (nothing else reads them).
+  actions: read
+
+env:
+  RELEASE_BODY: Download `Skrap_*_x64-setup.exe` below and run it. Already installed? Skrap updates itself.
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versions, notes and tag agree
+        run: node scripts/version.mjs check
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+
+      - name: Install
+        working-directory: app
+        run: npm ci
+
+      # Unsigned: build, sign the update files and draft the release in one go.
+      - uses: tauri-apps/tauri-action@v0
+        id: tauri
+        if: vars.SIGNPATH_ORGANIZATION_ID == ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: app
+          tagName: ${{ github.ref_name }}
+          releaseName: Skrap ${{ github.ref_name }}
+          releaseBody: ${{ env.RELEASE_BODY }}
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+
+      # Signed with SignPath: the app first, then the installer made around it. Each signing
+      # request waits for its approval in SignPath (up to three hours).
+      - name: Build skrap.exe
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        working-directory: app
+        run: npx tauri build --no-bundle --ci
+
+      - name: Upload skrap.exe for signing
+        id: unsigned-exe
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: skrap-exe
+          path: target/release/skrap.exe
+          if-no-files-found: error
+
+      - name: Sign skrap.exe
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'skrap' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_EXE_CONFIGURATION || 'skrap-exe' }}
+          github-artifact-id: ${{ steps.unsigned-exe.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 10800
+          output-artifact-directory: signed/exe
+
+      - name: Bundle the installer around the signed skrap.exe
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          cp signed/exe/skrap.exe target/release/skrap.exe
+          (cd app && npx tauri bundle --bundles nsis --ci)
+          installer=$(ls target/release/bundle/nsis/*-setup.exe)
+          mkdir -p signing/installer
+          cp "$installer" signing/installer/skrap-setup.exe
+
+      - name: Upload the installer for signing
+        id: unsigned-installer
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: skrap-setup
+          path: signing/installer/skrap-setup.exe
+          if-no-files-found: error
+
+      - name: Sign the installer
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'skrap' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_INSTALLER_CONFIGURATION || 'skrap-installer' }}
+          github-artifact-id: ${{ steps.unsigned-installer.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 10800
+          output-artifact-directory: signed/installer
+
+      # The update signature made while bundling covers the unsigned installer: the updater would
+      # reject the signed one. Sign it again, then write latest.json for it.
+      - name: Sign the signed installer for the updater
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          installer=$(ls target/release/bundle/nsis/*-setup.exe)
+          cp signed/installer/skrap-setup.exe "$installer"
+          rm -f "$installer.sig"
+          version=$(jq -r .version app/src-tauri/tauri.conf.json)
+          (cd app && npx tauri signer sign --app-version "$version" "../$installer")
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$(basename "$installer")"
+          jq -n \
+            --arg version "$version" \
+            --arg notes "$RELEASE_BODY" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg signature "$(cat "$installer.sig")" \
+            --arg url "$url" \
+            '{version: $version, notes: $notes, pub_date: $date, platforms: {
+              "windows-x86_64": {signature: $signature, url: $url},
+              "windows-x86_64-nsis": {signature: $signature, url: $url}}}' \
+            > target/release/bundle/latest.json
+
+      - name: Check the Authenticode signatures
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        shell: pwsh
+        run: |
+          $files = @('target/release/skrap.exe') + (Get-ChildItem target/release/bundle/nsis/*-setup.exe).FullName
+          foreach ($file in $files) {
+            $signature = Get-AuthenticodeSignature $file
+            Write-Host "$file`: $($signature.Status) ($($signature.SignerCertificate.Subject))"
+            if ($signature.Status -ne 'Valid') { throw "$file is not validly signed" }
+          }
+
+      - name: Draft the release
+        id: signed-release
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          id=$(gh api -X POST "repos/$GITHUB_REPOSITORY/releases" \
+            -f tag_name="$TAG" -f target_commitish="$GITHUB_SHA" -f name="Skrap $TAG" \
+            -f body="$RELEASE_BODY" -F draft=true -F prerelease=false --jq .id)
+          installer=$(ls target/release/bundle/nsis/*-setup.exe)
+          for file in "$installer" "$installer.sig" target/release/bundle/latest.json; do
+            curl --fail -sS -o /dev/null -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary "@$file" \
+              "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$id/assets?name=$(basename "$file")"
+          done
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+      # The list of every dependency in this build (SBOM), attached to the release. Never blocks it.
+      - name: Software bill of materials
+        id: sbom
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.tauri.outputs.releaseId || steps.signed-release.outputs.id }}
+        run: |
+          cargo install cargo-cyclonedx --locked --quiet
+          cargo cyclonedx --format json --spec-version 1.5 --override-filename skrap-sbom -q
+          sbom=$(ls app/src-tauri/skrap-sbom.json)
+          curl --fail -sS -o /dev/null -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-binary "@$sbom" \
+            "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=skrap-sbom.cdx.json"
+
+      # VirusTotal (optional). The key never reaches the build: it is only given to these steps.
+      - name: Is VirusTotal configured?
+        id: vt-key
+        shell: bash
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: echo "present=$([ -n "$VT_API_KEY" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Scan the installer with VirusTotal
+        id: virustotal
+        if: steps.vt-key.outputs.present == 'true'
+        # A VirusTotal outage never blocks a release: the notes then only have the checksum.
+        continue-on-error: true
+        shell: bash
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: |
+          api=https://www.virustotal.com/api/v3
+          installer=$(ls target/release/bundle/nsis/*-setup.exe)
+          # Files over 32 MB go through a one-time upload URL.
+          if [ "$(stat -c %s "$installer")" -gt 32000000 ]; then
+            upload=$(curl --fail -sS -H "x-apikey: $VT_API_KEY" "$api/files/upload_url" | jq -r .data)
+          else
+            upload="$api/files"
+          fi
+          analysis=$(curl --fail -sS -H "x-apikey: $VT_API_KEY" -F "file=@$installer" "$upload" | jq -r .data.id)
+          echo "uploaded=true" >> "$GITHUB_OUTPUT"
+          # The free API allows 4 requests a minute: ask every 30 s, for 10 minutes at most.
+          verdict="analysis still running when the release was drafted"
+          for _ in $(seq 20); do
+            sleep 30
+            report=$(curl -sS -H "x-apikey: $VT_API_KEY" "$api/analyses/$analysis" || true)
+            if [ "$(jq -r '.data.attributes.status // empty' <<< "$report")" = completed ]; then
+              flagged=$(jq '.data.attributes.stats | .malicious + .suspicious' <<< "$report")
+              engines=$(jq '.data.attributes.stats | .malicious + .suspicious + .undetected + .harmless' <<< "$report")
+              verdict="$flagged of $engines engines flag it"
+              break
+            fi
+          done
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+
+      - name: Add the checksum and the scan to the release notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.tauri.outputs.releaseId || steps.signed-release.outputs.id }}
+          VT_UPLOADED: ${{ steps.virustotal.outputs.uploaded }}
+          VT_VERDICT: ${{ steps.virustotal.outputs.verdict }}
+        run: |
+          installer=$(ls target/release/bundle/nsis/*-setup.exe)
+          sha=$(sha256sum "$installer" | cut -d ' ' -f 1)
+          marker='<!-- skrap:checks -->'
+          body=$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" --jq '.body // ""' | tr -d '\r')
+          # A re-run replaces what an earlier run added (and the blank lines before it).
+          body=$(printf '%s' "${body%%"$marker"*}")
+          {
+            printf '%s\n\n%s\n' "$body" "$marker"
+            printf '**SHA-256** of `%s`: `%s`\n' "$(basename "$installer")" "$sha"
+            if [ "$VT_UPLOADED" = true ]; then
+              printf '\n**VirusTotal:** [scan report](https://www.virustotal.com/gui/file/%s) (%s)\n' \
+                "$sha" "${VT_VERDICT:-analysis still running when the release was drafted}"
+            fi
+          } > release-notes.md
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F body=@release-notes.md > /dev/null
+          cat release-notes.md >> "$GITHUB_STEP_SUMMARY"

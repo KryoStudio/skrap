@@ -1,5 +1,5 @@
 [package]
-name = "skrap-app"
+name = "skrap"
 description = "Skrap: the free, open-source PC cleaner for Windows, made for gamers. 100% local."
 version.workspace = true
 edition.workspace = true

@@ -8,9 +8,10 @@ skrap/
 │  ├─ skrap-core     engine: rules, patterns, scan, clean, the Reserve, protected folders
 │  ├─ skrap-win      everything Win32: disks, processes, known folders, Recycle Bin, attributes
 │  ├─ skrap-rules    the built-in rules (rules/*.toml), embedded and validated
-│  └─ skrap-cli      `skrap` on the command line, same engine
+│  └─ skrap-cli      the command line, same engine (read-only for now)
 ├─ rules/            the cleaning rules, one TOML file per module
 ├─ app/              the desktop app: SvelteKit front end, src-tauri back end
+├─ scripts/          version.mjs: one version everywhere, notes for every version
 └─ docs/
 ```
 

@@ -37,7 +37,12 @@ Ads, a mandatory account, telemetry, bundled software in the installer, a paid t
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phases and what closes each one.
 
 - [x] Skrap identity (direction *Acide*)
-- [ ] Phase 0, foundations: cleaning engine, the Reserve, the app shell, signed updates, CI
+- [x] Cleaning engine in Rust: rules, parallel scan, clean, the Reserve, hard-coded protected folders
+- [x] 35 rules in English and French: System, Games and launchers, Browsers, Apps
+- [x] The app: scan to watch, results with the reason for every item, clean, the Reserve, settings
+- [x] Signed in-app updates, offered in the middle of the screen; "What's new" after each update
+- [x] CI (format, lints, tests, types, dependency advisories) and the release workflow
+- [ ] Phase 0 gate: a tagged build that installs, updates itself and restores everything it kept
 - [ ] Phase 1, the core: System, Browsers, Gaming and Apps modules
 - [ ] Phase 2, private beta with the Krak community: admin helper, disk analysis (MFT)
 - [ ] Phase 3, public launch: code signing, 12 languages, website
@@ -51,14 +56,18 @@ Requirements: Windows 10 or 11, [Node.js](https://nodejs.org) 22+, [Rust](https:
 cd app
 npm install
 npm run tauri dev     # run the app with hot reload
-npm run tauri build   # build the installer
+npm run dev           # or only the interface, in a browser, with demo data
+npm run tauri build   # build the installer (needs the update signing key, see docs/RELEASING.md)
 ```
+
+In the browser preview, `?demo=<screen>` opens a screen directly: `home`, `scanning`, `results`, `cleaning`, `done`, `update`, `whatsnew` (`&still` turns the animations off).
 
 The engine is a Rust workspace at the root of the repository:
 
 ```bash
-cargo test --workspace
-cargo run -p skrap-cli -- scan        # what a scan finds, nothing is deleted
+cargo test                                  # the engine
+cargo test --workspace                      # the engine and the app
+cargo run -p skrap-cli -- scan --lang fr    # what a scan finds on this PC, nothing is deleted
 ```
 
 How it is put together: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). How cleaning rules are written: [`docs/RULES.md`](docs/RULES.md). How releases and in-app updates work: [`docs/RELEASING.md`](docs/RELEASING.md).

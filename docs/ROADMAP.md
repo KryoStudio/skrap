@@ -8,14 +8,15 @@ Phase 3 is the real public launch. Everything after it ships through updates, on
 
 The repository, the engine and the app shell, so that every later module only adds rules and screens.
 
-- [ ] Cargo workspace: `skrap-core` (rules, scan, clean, Reserve, protected paths), `skrap-win` (Win32), `skrap-rules` (built-in rules), `skrap-cli`
-- [ ] Rule format (TOML), with risk levels, explanations in every language, "skip while this app runs"
-- [ ] Hard-coded protected folders that no rule can reach
-- [ ] The Reserve: moved, not deleted, on the same disk; restore; purge after 7 days or when the disk runs low
-- [ ] Tauri 2 + SvelteKit app: title bar, sidebar, home, scan, results, clean, Reserve, settings
-- [ ] Signed in-app updates, offered in the middle of the screen at launch, then "What's new" once updated
-- [ ] French and English
-- [ ] CI (format, lints, tests, type checks, build) and the release workflow
+- [x] Cargo workspace: `skrap-core` (rules, scan, clean, Reserve, protected paths), `skrap-win` (Win32), `skrap-rules` (built-in rules), `skrap-cli`
+- [x] Rule format (TOML), with risk levels, explanations in every language, "skip while this app runs"
+- [x] Hard-coded protected folders that no rule can reach
+- [x] The Reserve: moved, not deleted, on the same disk; restore; purge after 7 days or when the disk runs low
+- [x] Tauri 2 + SvelteKit app: title bar, sidebar, home, scan, results, clean, Reserve, settings
+- [x] Signed in-app updates, offered in the middle of the screen at launch, then "What's new" once updated
+- [x] French and English
+- [x] CI (format, lints, tests, type checks, build, dependency advisories) and the release workflow
+- [ ] The GitHub repository, its `TAURI_SIGNING_PRIVATE_KEY` secret, and a first tagged release
 
 **Gate:** a build from a tag installs, updates itself from a newer tag, scans a real PC in under 5 seconds and restores everything it put in the Reserve.
 

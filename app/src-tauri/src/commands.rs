@@ -210,22 +210,27 @@ pub async fn get_reserve_files(app: AppHandle, batch: String, limit: usize) -> V
 }
 
 #[tauri::command]
-pub async fn restore_batch(app: AppHandle, batch: String) -> RestoreReport {
-    let report = app.state::<AppState>().reserve.restore(&batch, None);
+pub async fn restore_batch(app: AppHandle, batch: String) -> CommandResult<RestoreReport> {
+    // Never while a clean may still be filling a batch, nor while another change runs.
+    let report = jobs::exclusive(&app, || {
+        app.state::<AppState>().reserve.restore(&batch, None)
+    })?;
     let _ = app.emit(jobs::RESERVE_CHANGED, 0);
-    report
+    Ok(report)
 }
 
 /// Frees one batch for good, or the whole Reserve (`None`). Returns the bytes freed.
 #[tauri::command]
-pub async fn release_batch(app: AppHandle, batch: Option<String>) -> u64 {
-    let state = app.state::<AppState>();
-    let freed = match batch {
-        Some(id) => state.reserve.purge(&id),
-        None => state.reserve.purge_all(),
-    };
+pub async fn release_batch(app: AppHandle, batch: Option<String>) -> CommandResult<u64> {
+    let freed = jobs::exclusive(&app, || {
+        let reserve = &app.state::<AppState>().reserve;
+        match batch {
+            Some(id) => reserve.purge(&id),
+            None => reserve.purge_all(),
+        }
+    })?;
     let _ = app.emit(jobs::RESERVE_CHANGED, freed);
-    freed
+    Ok(freed)
 }
 
 /// Shows a file (or the folder it was in) in File Explorer.

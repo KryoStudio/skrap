@@ -1,6 +1,6 @@
 // The Reserve page's state: batches, restoring, freeing.
-import { api, on, type Batch } from './api';
-import { formatSize, t } from './i18n.svelte';
+import { api, errorCode, on, type Batch } from './api';
+import { formatSize, hasKey, t } from './i18n.svelte';
 import { overview } from './overview.svelte';
 import { confirm, toast } from './ui.svelte';
 
@@ -38,8 +38,8 @@ class ReserveStore {
       const report = await api.restoreBatch(batch.id);
       if (report.files > 0) toast({ kind: 'success', title: t('reserve.restored', { count: report.files }) });
       if (report.failures.length > 0) toast({ kind: 'error', title: t('reserve.restoreFailed', { count: report.failures.length }) });
-    } catch {
-      toast({ kind: 'error', title: t('error.generic') });
+    } catch (e) {
+      failed(e);
     } finally {
       this.leaving = this.leaving.filter((id) => id !== batch.id);
       await this.load();
@@ -58,12 +58,18 @@ class ReserveStore {
     try {
       const freed = await api.releaseBatch(batch?.id ?? null);
       toast({ kind: 'success', title: t('reserve.released', { size: formatSize(freed) }) });
-    } catch {
-      toast({ kind: 'error', title: t('error.generic') });
+    } catch (e) {
+      failed(e);
     }
     await this.load();
     void overview.refresh();
   }
+}
+
+/** "Skrap is already busy." while a scan or a clean runs, else a generic error. */
+function failed(e: unknown) {
+  const key = `error.${errorCode(e)}`;
+  toast({ kind: 'error', title: t(hasKey(key) ? key : 'error.generic') });
 }
 
 export const reserve = new ReserveStore();

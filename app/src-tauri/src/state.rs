@@ -63,8 +63,8 @@ impl AppState {
         }
     }
 
-    /// The folders a scan never enters besides the user's own: the Reserve itself.
+    /// The folders a scan never enters besides the user's own: the Reserve, on every disk.
     pub fn extra_protected(&self) -> Vec<PathBuf> {
-        vec![self.reserve.home().to_path_buf()]
+        self.reserve.store_dirs()
     }
 }

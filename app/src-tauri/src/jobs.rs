@@ -23,8 +23,10 @@ pub const RESERVE_CHANGED: &str = "reserve-changed";
 
 const TICK: Duration = Duration::from_millis(33);
 
-/// Below this share of free space, the Reserve frees its oldest batches.
+/// Below this share of free space, the Reserve frees its oldest batches...
 const LOW_DISK: f64 = 0.10;
+/// ...those more than a day old.
+const LOW_DISK_GRACE_MS: u64 = 24 * 60 * 60 * 1000;
 
 pub fn start_scan(app: &AppHandle) -> Result<(), &'static str> {
     let progress = begin(app)?;
@@ -107,33 +109,60 @@ pub fn cancel(app: &AppHandle) {
     }
 }
 
-/// Frees the Reserve's batches past their delay, then the oldest ones while the system disk is
-/// under 10% free. Tells the page when something went.
+/// Frees the Reserve's batches past their delay. Then, while the Windows disk is under 10% free,
+/// frees its oldest batches on that disk, one at a time: only those more than a day old (what
+/// was just cleaned can still come back), and only on that disk (freeing another changes
+/// nothing to it). Skipped while a scan, a clean or a restore runs. Tells the page what went.
 pub fn maintain_reserve(app: &AppHandle) {
-    let state = app.state::<AppState>();
-    let now = unix_ms(std::time::SystemTime::now());
-    let mut freed = state
-        .reserve
-        .purge_before(now.saturating_sub(state.settings().reserve_ms()));
-    let home = state.reserve.home();
-    let total = skrap_win::disks()
-        .into_iter()
-        .find(|d| d.system)
-        .map_or(0, |d| d.total);
-    // A disk of unknown size is never taken for a full one.
-    let low = || {
-        let free = skrap_win::free_space(home).unwrap_or(u64::MAX);
-        total > 0 && (free as f64) < (total as f64) * LOW_DISK
-    };
-    while low() {
-        let Some(oldest) = state.reserve.list().pop() else {
-            break;
+    let freed = exclusive(app, || {
+        let state = app.state::<AppState>();
+        let now = unix_ms(std::time::SystemTime::now());
+        let mut freed = state
+            .reserve
+            .purge_before(now.saturating_sub(state.settings().reserve_ms()));
+
+        let home = state.reserve.home();
+        let total = skrap_win::disks()
+            .into_iter()
+            .find(|d| d.system)
+            .map_or(0, |d| d.total);
+        // A disk of unknown size is never taken for a full one.
+        let low = || {
+            let free = skrap_win::free_space(home).unwrap_or(u64::MAX);
+            total > 0 && (free as f64) < (total as f64) * LOW_DISK
         };
-        freed += state.reserve.purge(&oldest.id);
-    }
-    if freed > 0 {
+        let mut candidates: Vec<_> = state
+            .reserve
+            .home_list()
+            .into_iter()
+            .filter(|batch| batch.created < now.saturating_sub(LOW_DISK_GRACE_MS))
+            .collect();
+        while low() {
+            // The list is newest first: the oldest is last.
+            let Some(oldest) = candidates.pop() else {
+                break;
+            };
+            let gone = state.reserve.purge_home(&oldest.id);
+            if gone == 0 {
+                break; // could not be freed: no point going on
+            }
+            freed += gone;
+        }
+        freed
+    });
+    if let Ok(freed) = freed
+        && freed > 0
+    {
         let _ = app.emit(RESERVE_CHANGED, freed);
     }
+}
+
+/// Runs `work` while no scan, clean or other Reserve change can start, or refuses when one runs.
+pub fn exclusive<T>(app: &AppHandle, work: impl FnOnce() -> T) -> Result<T, &'static str> {
+    begin(app)?;
+    let result = work();
+    *lock(&app.state::<AppState>().job) = None;
+    Ok(result)
 }
 
 /// Marks a job as running, or refuses when one already is.

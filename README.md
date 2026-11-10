@@ -16,7 +16,9 @@
 
 ---
 
-> **Skrap is in early development.** There is no download yet.
+> **Skrap is in early development.** Get the installer from the [latest release](https://github.com/KryoStudio/skrap/releases/latest); once installed, Skrap updates itself.
+>
+> The installer is not code-signed yet: Windows may show "Windows protected your PC". Click **More info**, then **Run anyway**. Its SHA-256 is in the release notes.
 
 ## Why Skrap
 

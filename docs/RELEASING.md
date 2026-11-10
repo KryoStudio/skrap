@@ -22,7 +22,11 @@ writes the version in `Cargo.toml`, `app/package.json` and `app/src-tauri/tauri.
 2. `node scripts/version.mjs check`, then commit ("Version 0.2.0").
 3. Tag and push: `git tag v0.2.0 && git push && git push origin v0.2.0`.
 4. The [Release workflow](../.github/workflows/release.yml) checks that the tag matches the version, builds the installer, signs the update files, and drafts a GitHub release with `Skrap_0.2.0_x64-setup.exe`, its `.sig`, `latest.json`, the dependency list (SBOM), the installer's SHA-256 and, once configured, its VirusTotal report.
-5. Edit the draft: the first paragraph of the release notes is what the update dialog shows ("A new version is ready…" when there is none), so write it for players, in one or two sentences. Then **Publish**.
+5. Edit the draft: the first paragraph of the release notes is what the update dialog shows ("A new version is ready…" when there is none), so write it for players, in one or two sentences; the version's section of `CHANGELOG.md` fits. **Check that the draft's tag is `v0.2.0`**: a draft can come with a placeholder tag (`untagged-…`), and publishing it so would break the links in `latest.json`. Then **Publish**. From the command line, both at once:
+
+   ```bash
+   gh api -X PATCH repos/KryoStudio/skrap/releases/<id> -f tag_name=v0.2.0 -F draft=false -f make_latest=true
+   ```
 
 From that moment, every installed Skrap that looks for updates finds it.
 

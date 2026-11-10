@@ -1,0 +1,82 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Skrap",
+  "mainBinaryName": "skrap",
+  "version": "0.1.0",
+  "identifier": "com.kryostudio.skrap",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1430",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Skrap",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 940,
+        "minHeight": 620,
+        "center": true,
+        "decorations": false,
+        "visible": false,
+        "shadow": true,
+        "backgroundColor": "#0B0B0C",
+        "theme": "Dark",
+        "create": false
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": ["'self'", "ipc:", "http://ipc.localhost"],
+        "img-src": ["'self'", "data:", "blob:"],
+        "style-src": ["'self'", "'unsafe-inline'"],
+        "font-src": ["'self'", "data:"],
+        "connect-src": ["ipc:", "http://ipc.localhost"]
+      },
+      "devCsp": null,
+      "dangerousDisableAssetCspModification": ["style-src"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "Kryo Studio",
+    "copyright": "Copyright (C) 2026 Kryo Studio. GPL-3.0-only.",
+    "category": "Utility",
+    "shortDescription": "Free, open-source PC cleaner for Windows, made for gamers.",
+    "homepage": "https://github.com/KryoStudio/skrap",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English", "French"],
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico",
+        "sidebarImage": "icons/installer-sidebar.bmp",
+        "headerImage": "icons/installer-header.bmp"
+      }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc3OTIwRTZGOTM3N0FFMEEKUldRS3JuZVRidzZTZCtpVUY4MjB5cVo3VE5nTE5pTHFkZmtTYjRHOHNpbUI3RktUZ1k4L0NPVkIK",
+      "endpoints": ["https://github.com/KryoStudio/skrap/releases/latest/download/latest.json"],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

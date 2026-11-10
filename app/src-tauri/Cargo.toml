@@ -1,0 +1,35 @@
+[package]
+name = "skrap-app"
+description = "Skrap: the free, open-source PC cleaner for Windows, made for gamers. 100% local."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lib]
+# The `_lib` suffix keeps the library's name apart from the binary's (cargo#8519 on Windows).
+name = "skrap_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+skrap-core.workspace = true
+skrap-rules.workspace = true
+skrap-win.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tauri = { version = "2.12", features = [] }
+tauri-plugin-opener = "2.7"
+tauri-plugin-process = "2.4"
+tauri-plugin-single-instance = "2.5"
+tauri-plugin-updater = "2.14"
+tauri-plugin-window-state = "2.5"
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

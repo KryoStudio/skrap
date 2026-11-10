@@ -1,0 +1,60 @@
+# Apps: the caches of everyday programs. An app that is open is left alone. Hundreds more will
+# come from BleachBit's CleanerML definitions, converted to this format.
+
+[[rule]]
+id = "apps.discord.cache"
+category = "apps"
+risk = "safe"
+group = { en = "Discord", fr = "Discord" }
+name = { en = "Cache", fr = "Cache" }
+explain = { en = "Images, GIFs and videos seen in your chats. Downloaded again as you scroll; your messages stay on Discord.", fr = "Les images, GIF et vidéos vus dans tes discussions. Retéléchargés en défilant ; tes messages restent sur Discord." }
+paths = [
+  '%APPDATA%\discord\Cache',
+  '%APPDATA%\discord\Code Cache',
+  '%APPDATA%\discord\GPUCache',
+]
+running = ["Discord.exe"]
+
+[[rule]]
+id = "apps.vscode.cache"
+category = "apps"
+risk = "safe"
+group = { en = "Visual Studio Code", fr = "Visual Studio Code" }
+name = { en = "Cache and logs", fr = "Cache et journaux" }
+explain = { en = "What the editor caches and logs. Rebuilt when it starts; your settings, extensions and projects stay.", fr = "Ce que l'éditeur met en cache et note. Recréé au démarrage ; tes réglages, extensions et projets restent." }
+paths = [
+  '%APPDATA%\Code\Cache',
+  '%APPDATA%\Code\CachedData',
+  '%APPDATA%\Code\Code Cache',
+  '%APPDATA%\Code\GPUCache',
+  '%APPDATA%\Code\logs',
+]
+running = ["Code.exe"]
+
+[[rule]]
+id = "apps.slack.cache"
+category = "apps"
+risk = "safe"
+group = { en = "Slack", fr = "Slack" }
+name = { en = "Cache", fr = "Cache" }
+explain = { en = "Images and files seen in your workspaces. Downloaded again when needed; your messages stay on Slack.", fr = "Les images et fichiers vus dans tes espaces de travail. Retéléchargés si besoin ; tes messages restent sur Slack." }
+paths = [
+  '%APPDATA%\Slack\Cache',
+  '%APPDATA%\Slack\Code Cache',
+  '%APPDATA%\Slack\GPUCache',
+]
+running = ["slack.exe"]
+
+[[rule]]
+id = "apps.teams.cache"
+category = "apps"
+risk = "safe"
+group = { en = "Microsoft Teams (classic)", fr = "Microsoft Teams (classique)" }
+name = { en = "Cache", fr = "Cache" }
+explain = { en = "Images and files seen in your chats and meetings. Downloaded again when needed.", fr = "Les images et fichiers vus dans tes discussions et réunions. Retéléchargés si besoin." }
+paths = [
+  '%APPDATA%\Microsoft\Teams\Cache',
+  '%APPDATA%\Microsoft\Teams\Code Cache',
+  '%APPDATA%\Microsoft\Teams\GPUCache',
+]
+running = ["Teams.exe"]

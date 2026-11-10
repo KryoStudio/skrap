@@ -1,0 +1,140 @@
+# Gaming: shader caches, launcher caches and logs, driver installer leftovers. Shader caches are
+# "review": they rebuild themselves, but the next launch of each game can stutter for a moment.
+# A launcher that is open is left alone; files a running game holds open are reported, not forced.
+
+[[rule]]
+id = "gaming.directx.shader_cache"
+category = "gaming"
+risk = "review"
+group = { en = "DirectX", fr = "DirectX" }
+name = { en = "DirectX shader cache", fr = "Cache de shaders DirectX" }
+explain = { en = "Shaders Windows compiled for your games. Rebuilt on their own, but the next launch of each game can stutter for a moment.", fr = "Les shaders que Windows a compilés pour tes jeux. Recréés tout seuls, mais le prochain lancement de chaque jeu peut saccader un instant." }
+paths = ['%LOCALAPPDATA%\D3DSCache']
+
+[[rule]]
+id = "gaming.nvidia.shader_cache"
+category = "gaming"
+risk = "review"
+group = { en = "NVIDIA", fr = "NVIDIA" }
+name = { en = "Shader cache", fr = "Cache de shaders" }
+explain = { en = "Shaders the NVIDIA driver compiled for your games. Rebuilt on their own, but the next launch of each game can stutter for a moment.", fr = "Les shaders que le pilote NVIDIA a compilés pour tes jeux. Recréés tout seuls, mais le prochain lancement de chaque jeu peut saccader un instant." }
+paths = [
+  '%LOCALAPPDATA%\NVIDIA\DXCache',
+  '%LOCALAPPDATA%\NVIDIA\GLCache',
+  '%LOCALAPPDATALOW%\NVIDIA\PerDriverVersion\DXCache',
+  '%LOCALAPPDATALOW%\NVIDIA\PerDriverVersion\GLCache',
+]
+
+[[rule]]
+id = "gaming.amd.shader_cache"
+category = "gaming"
+risk = "review"
+group = { en = "AMD", fr = "AMD" }
+name = { en = "Shader cache", fr = "Cache de shaders" }
+explain = { en = "Shaders the AMD driver compiled for your games. Rebuilt on their own, but the next launch of each game can stutter for a moment.", fr = "Les shaders que le pilote AMD a compilés pour tes jeux. Recréés tout seuls, mais le prochain lancement de chaque jeu peut saccader un instant." }
+paths = [
+  '%LOCALAPPDATA%\AMD\DxCache',
+  '%LOCALAPPDATA%\AMD\DxcCache',
+  '%LOCALAPPDATA%\AMD\Dx9Cache',
+  '%LOCALAPPDATA%\AMD\VkCache',
+  '%LOCALAPPDATA%\AMD\GLCache',
+]
+
+[[rule]]
+id = "gaming.intel.shader_cache"
+category = "gaming"
+risk = "review"
+group = { en = "Intel", fr = "Intel" }
+name = { en = "Shader cache", fr = "Cache de shaders" }
+explain = { en = "Shaders the Intel driver compiled for your games. Rebuilt on their own, but the next launch of each game can stutter for a moment.", fr = "Les shaders que le pilote Intel a compilés pour tes jeux. Recréés tout seuls, mais le prochain lancement de chaque jeu peut saccader un instant." }
+paths = ['%LOCALAPPDATALOW%\Intel\ShaderCache']
+
+[[rule]]
+id = "gaming.nvidia.installer_leftovers"
+category = "gaming"
+risk = "safe"
+group = { en = "NVIDIA", fr = "NVIDIA" }
+name = { en = "Driver installer leftovers", fr = "Restes d'installation du pilote" }
+explain = { en = "The unpacked copy of a driver installer, left on the disk once the driver is in place.", fr = "La copie décompressée d'un installateur de pilote, restée sur le disque une fois le pilote installé." }
+paths = ['%SYSTEMDRIVE%\NVIDIA']
+admin = true
+
+[[rule]]
+id = "gaming.amd.installer_leftovers"
+category = "gaming"
+risk = "safe"
+group = { en = "AMD", fr = "AMD" }
+name = { en = "Driver installer leftovers", fr = "Restes d'installation du pilote" }
+explain = { en = "The unpacked copy of a driver installer, left on the disk once the driver is in place.", fr = "La copie décompressée d'un installateur de pilote, restée sur le disque une fois le pilote installé." }
+paths = ['%SYSTEMDRIVE%\AMD']
+admin = true
+
+[[rule]]
+id = "gaming.steam.web_cache"
+category = "gaming"
+risk = "safe"
+group = { en = "Steam", fr = "Steam" }
+name = { en = "Store and community cache", fr = "Cache de la boutique et de la communauté" }
+explain = { en = "Pages and images of the Steam store, library and community. Downloaded again when Steam opens.", fr = "Les pages et images de la boutique, de la bibliothèque et de la communauté Steam. Retéléchargées à l'ouverture de Steam." }
+paths = ['%LOCALAPPDATA%\Steam\htmlcache', '%STEAM%\appcache\httpcache']
+running = ["steam.exe"]
+
+[[rule]]
+id = "gaming.steam.logs"
+category = "gaming"
+risk = "safe"
+group = { en = "Steam", fr = "Steam" }
+name = { en = "Logs and crash dumps", fr = "Journaux et dumps de plantage" }
+explain = { en = "Steam's own logs and crash reports. Only useful to Valve's support.", fr = "Les journaux et rapports de plantage de Steam lui-même. Utiles seulement au support de Valve." }
+paths = ['%STEAM%\logs', '%STEAM%\dumps']
+running = ["steam.exe"]
+
+[[rule]]
+id = "gaming.steam.shader_cache"
+category = "gaming"
+risk = "review"
+group = { en = "Steam", fr = "Steam" }
+name = { en = "Shader pre-caching", fr = "Pré-cache des shaders" }
+explain = { en = "Shaders Steam downloaded or compiled ahead for your games. Rebuilt on their own; the next launch of a game can take longer.", fr = "Les shaders que Steam a téléchargés ou compilés à l'avance pour tes jeux. Recréés tout seuls ; le prochain lancement d'un jeu peut être plus long." }
+paths = ['%STEAM%\steamapps\shadercache']
+running = ["steam.exe"]
+
+[[rule]]
+id = "gaming.epic.web_cache"
+category = "gaming"
+risk = "safe"
+group = { en = "Epic Games", fr = "Epic Games" }
+name = { en = "Launcher cache", fr = "Cache du launcher" }
+explain = { en = "Pages and images of the Epic Games store. Downloaded again when the launcher opens.", fr = "Les pages et images de la boutique Epic Games. Retéléchargées à l'ouverture du launcher." }
+paths = ['%LOCALAPPDATA%\EpicGamesLauncher\Saved\webcache*']
+running = ["EpicGamesLauncher.exe"]
+
+[[rule]]
+id = "gaming.epic.logs"
+category = "gaming"
+risk = "safe"
+group = { en = "Epic Games", fr = "Epic Games" }
+name = { en = "Launcher logs", fr = "Journaux du launcher" }
+explain = { en = "What the Epic Games launcher wrote down while it ran. Only useful to Epic's support.", fr = "Ce que le launcher Epic Games a noté en tournant. Utile seulement au support d'Epic." }
+paths = ['%LOCALAPPDATA%\EpicGamesLauncher\Saved\Logs']
+running = ["EpicGamesLauncher.exe"]
+
+[[rule]]
+id = "gaming.battlenet.cache"
+category = "gaming"
+risk = "safe"
+group = { en = "Battle.net", fr = "Battle.net" }
+name = { en = "Launcher cache", fr = "Cache du launcher" }
+explain = { en = "Pages and images of the Battle.net app. Downloaded again when it opens.", fr = "Les pages et images de l'appli Battle.net. Retéléchargées à son ouverture." }
+paths = ['%LOCALAPPDATA%\Battle.net\Cache', '%LOCALAPPDATA%\Battle.net\BrowserCache']
+running = ["Battle.net.exe"]
+
+[[rule]]
+id = "gaming.riot.logs"
+category = "gaming"
+risk = "safe"
+group = { en = "Riot Games", fr = "Riot Games" }
+name = { en = "Client logs", fr = "Journaux du client" }
+explain = { en = "What the Riot Client wrote down while it ran. Only useful to Riot's support.", fr = "Ce que le Riot Client a noté en tournant. Utile seulement au support de Riot." }
+paths = ['%LOCALAPPDATA%\Riot Games\Riot Client\Logs']
+running = ["RiotClientServices.exe", "RiotClientUx.exe"]

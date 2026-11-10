@@ -1,0 +1,111 @@
+# Browsers: caches only. Cookies and history come later, unticked, with a list of sites to stay
+# signed in to. A browser that is open is left alone.
+
+[[rule]]
+id = "browsers.chrome.cache"
+category = "browsers"
+risk = "safe"
+group = { en = "Chrome", fr = "Chrome" }
+name = { en = "Cache", fr = "Cache" }
+explain = { en = "Copies of pages, images and scripts from the sites you visited, in every profile. Downloaded again as you browse; you stay signed in.", fr = "Des copies des pages, images et scripts des sites visités, dans tous les profils. Retéléchargées en naviguant ; tu restes connecté." }
+paths = [
+  '%LOCALAPPDATA%\Google\Chrome\User Data\*\Cache',
+  '%LOCALAPPDATA%\Google\Chrome\User Data\*\Code Cache',
+  '%LOCALAPPDATA%\Google\Chrome\User Data\*\GPUCache',
+  '%LOCALAPPDATA%\Google\Chrome\User Data\ShaderCache',
+  '%LOCALAPPDATA%\Google\Chrome\User Data\GrShaderCache',
+  '%LOCALAPPDATA%\Google\Chrome\User Data\GraphiteDawnCache',
+]
+running = ["chrome.exe"]
+
+[[rule]]
+id = "browsers.edge.cache"
+category = "browsers"
+risk = "safe"
+group = { en = "Edge", fr = "Edge" }
+name = { en = "Cache", fr = "Cache" }
+explain = { en = "Copies of pages, images and scripts from the sites you visited, in every profile. Downloaded again as you browse; you stay signed in.", fr = "Des copies des pages, images et scripts des sites visités, dans tous les profils. Retéléchargées en naviguant ; tu restes connecté." }
+paths = [
+  '%LOCALAPPDATA%\Microsoft\Edge\User Data\*\Cache',
+  '%LOCALAPPDATA%\Microsoft\Edge\User Data\*\Code Cache',
+  '%LOCALAPPDATA%\Microsoft\Edge\User Data\*\GPUCache',
+  '%LOCALAPPDATA%\Microsoft\Edge\User Data\ShaderCache',
+  '%LOCALAPPDATA%\Microsoft\Edge\User Data\GrShaderCache',
+  '%LOCALAPPDATA%\Microsoft\Edge\User Data\GraphiteDawnCache',
+]
+running = ["msedge.exe"]
+
+[[rule]]
+id = "browsers.brave.cache"
+category = "browsers"
+risk = "safe"
+group = { en = "Brave", fr = "Brave" }
+name = { en = "Cache", fr = "Cache" }
+explain = { en = "Copies of pages, images and scripts from the sites you visited, in every profile. Downloaded again as you browse; you stay signed in.", fr = "Des copies des pages, images et scripts des sites visités, dans tous les profils. Retéléchargées en naviguant ; tu restes connecté." }
+paths = [
+  '%LOCALAPPDATA%\BraveSoftware\Brave-Browser\User Data\*\Cache',
+  '%LOCALAPPDATA%\BraveSoftware\Brave-Browser\User Data\*\Code Cache',
+  '%LOCALAPPDATA%\BraveSoftware\Brave-Browser\User Data\*\GPUCache',
+  '%LOCALAPPDATA%\BraveSoftware\Brave-Browser\User Data\ShaderCache',
+  '%LOCALAPPDATA%\BraveSoftware\Brave-Browser\User Data\GrShaderCache',
+]
+running = ["brave.exe"]
+
+[[rule]]
+id = "browsers.vivaldi.cache"
+category = "browsers"
+risk = "safe"
+group = { en = "Vivaldi", fr = "Vivaldi" }
+name = { en = "Cache", fr = "Cache" }
+explain = { en = "Copies of pages, images and scripts from the sites you visited, in every profile. Downloaded again as you browse; you stay signed in.", fr = "Des copies des pages, images et scripts des sites visités, dans tous les profils. Retéléchargées en naviguant ; tu restes connecté." }
+paths = [
+  '%LOCALAPPDATA%\Vivaldi\User Data\*\Cache',
+  '%LOCALAPPDATA%\Vivaldi\User Data\*\Code Cache',
+  '%LOCALAPPDATA%\Vivaldi\User Data\*\GPUCache',
+  '%LOCALAPPDATA%\Vivaldi\User Data\ShaderCache',
+]
+running = ["vivaldi.exe"]
+
+[[rule]]
+id = "browsers.opera.cache"
+category = "browsers"
+risk = "safe"
+group = { en = "Opera and Opera GX", fr = "Opera et Opera GX" }
+name = { en = "Cache", fr = "Cache" }
+explain = { en = "Copies of pages, images and scripts from the sites you visited. Downloaded again as you browse; you stay signed in.", fr = "Des copies des pages, images et scripts des sites visités. Retéléchargées en naviguant ; tu restes connecté." }
+paths = [
+  '%LOCALAPPDATA%\Opera Software\Opera Stable\Cache',
+  '%LOCALAPPDATA%\Opera Software\Opera GX Stable\Cache',
+  '%APPDATA%\Opera Software\Opera Stable\Code Cache',
+  '%APPDATA%\Opera Software\Opera Stable\GPUCache',
+  '%APPDATA%\Opera Software\Opera GX Stable\Code Cache',
+  '%APPDATA%\Opera Software\Opera GX Stable\GPUCache',
+]
+running = ["opera.exe"]
+
+[[rule]]
+id = "browsers.firefox.cache"
+category = "browsers"
+risk = "safe"
+group = { en = "Firefox", fr = "Firefox" }
+name = { en = "Cache", fr = "Cache" }
+explain = { en = "Copies of pages, images and scripts from the sites you visited, in every profile. Downloaded again as you browse; you stay signed in.", fr = "Des copies des pages, images et scripts des sites visités, dans tous les profils. Retéléchargées en naviguant ; tu restes connecté." }
+paths = [
+  '%LOCALAPPDATA%\Mozilla\Firefox\Profiles\*\cache2',
+  '%LOCALAPPDATA%\Mozilla\Firefox\Profiles\*\startupCache',
+  '%LOCALAPPDATA%\Mozilla\Firefox\Profiles\*\thumbnails',
+]
+running = ["firefox.exe"]
+
+[[rule]]
+id = "browsers.zen.cache"
+category = "browsers"
+risk = "safe"
+group = { en = "Zen", fr = "Zen" }
+name = { en = "Cache", fr = "Cache" }
+explain = { en = "Copies of pages, images and scripts from the sites you visited, in every profile. Downloaded again as you browse; you stay signed in.", fr = "Des copies des pages, images et scripts des sites visités, dans tous les profils. Retéléchargées en naviguant ; tu restes connecté." }
+paths = [
+  '%LOCALAPPDATA%\zen\Profiles\*\cache2',
+  '%LOCALAPPDATA%\zen\Profiles\*\startupCache',
+]
+running = ["zen.exe"]

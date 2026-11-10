@@ -1,0 +1,116 @@
+# System: what Windows and programs leave behind. See docs/RULES.md for the format.
+
+[[rule]]
+id = "system.windows.user_temp"
+category = "system"
+risk = "safe"
+group = { en = "Windows", fr = "Windows" }
+name = { en = "Temporary files", fr = "Fichiers temporaires" }
+explain = { en = "What programs leave behind while they work. Only files untouched for a day go: what an install in progress uses stays.", fr = "Ce que les programmes laissent en travaillant. Seuls les fichiers intouchés depuis un jour partent : ce qu'une installation en cours utilise reste." }
+paths = ['%TEMP%\*']
+older_than_hours = 24
+
+[[rule]]
+id = "system.windows.windows_temp"
+category = "system"
+risk = "safe"
+group = { en = "Windows", fr = "Windows" }
+name = { en = "Windows temporary files", fr = "Fichiers temporaires de Windows" }
+explain = { en = "Windows' own temporary folder. Only files untouched for a day go.", fr = "Le dossier temporaire de Windows lui-même. Seuls les fichiers intouchés depuis un jour partent." }
+paths = ['%WINDIR%\Temp\*']
+older_than_hours = 24
+admin = true
+
+[[rule]]
+id = "system.windows.crash_dumps"
+category = "system"
+risk = "safe"
+group = { en = "Windows", fr = "Windows" }
+name = { en = "Program crash dumps", fr = "Dumps de plantage des programmes" }
+explain = { en = "Memory snapshots taken when a program crashed. Only useful to its developers.", fr = "Des copies de la mémoire prises quand un programme a planté. Utiles seulement à ses développeurs." }
+paths = ['%LOCALAPPDATA%\CrashDumps']
+
+[[rule]]
+id = "system.windows.error_reports"
+category = "system"
+risk = "safe"
+group = { en = "Windows", fr = "Windows" }
+name = { en = "Error reports", fr = "Rapports d'erreurs" }
+explain = { en = "Reports Windows kept after a crash, sent or waiting to be. Nothing reads them on your PC.", fr = "Les rapports gardés par Windows après un plantage, envoyés ou en attente. Rien ne les relit sur ton PC." }
+paths = [
+  '%LOCALAPPDATA%\Microsoft\Windows\WER\ReportArchive',
+  '%LOCALAPPDATA%\Microsoft\Windows\WER\ReportQueue',
+  '%PROGRAMDATA%\Microsoft\Windows\WER\ReportArchive',
+  '%PROGRAMDATA%\Microsoft\Windows\WER\ReportQueue',
+]
+
+[[rule]]
+id = "system.windows.thumbnails"
+category = "system"
+risk = "safe"
+group = { en = "Windows", fr = "Windows" }
+name = { en = "Thumbnail cache", fr = "Cache des miniatures" }
+explain = { en = "The previews File Explorer shows for photos and videos. Rebuilt as you browse: a big photo folder opens a bit slower the first time.", fr = "Les aperçus des photos et vidéos dans l'Explorateur. Recréés au fil de la navigation : un gros dossier photo s'ouvre un peu plus lentement la première fois." }
+paths = ['%LOCALAPPDATA%\Microsoft\Windows\Explorer\thumbcache_*.db']
+
+[[rule]]
+id = "system.windows.inet_cache"
+category = "system"
+risk = "safe"
+group = { en = "Windows", fr = "Windows" }
+name = { en = "Windows internet cache", fr = "Cache internet de Windows" }
+explain = { en = "Web pages and images cached by Windows components and older apps. Downloaded again when needed.", fr = "Pages et images mises en cache par des composants de Windows et d'anciennes applis. Retéléchargées si besoin." }
+paths = ['%LOCALAPPDATA%\Microsoft\Windows\INetCache\IE']
+
+[[rule]]
+id = "system.windows.update_cache"
+category = "system"
+risk = "safe"
+group = { en = "Windows Update", fr = "Windows Update" }
+name = { en = "Downloaded updates", fr = "Mises à jour téléchargées" }
+explain = { en = "Update files Windows already installed. If one is still needed, Windows Update downloads it again.", fr = "Les fichiers de mises à jour que Windows a déjà installées. S'il en faut encore un, Windows Update le retélécharge." }
+paths = ['%WINDIR%\SoftwareDistribution\Download']
+admin = true
+
+[[rule]]
+id = "system.windows.delivery_optimization"
+category = "system"
+risk = "safe"
+group = { en = "Windows Update", fr = "Windows Update" }
+name = { en = "Delivery Optimization cache", fr = "Cache de l'optimisation de distribution" }
+explain = { en = "Update pieces Windows keeps to share with other PCs. Not needed by yours.", fr = "Des morceaux de mises à jour que Windows garde pour les partager avec d'autres PC. Le tien n'en a pas besoin." }
+paths = ['%WINDIR%\ServiceProfiles\NetworkService\AppData\Local\Microsoft\Windows\DeliveryOptimization\Cache']
+admin = true
+
+[[rule]]
+id = "system.windows.update_logs"
+category = "system"
+risk = "safe"
+group = { en = "Windows Update", fr = "Windows Update" }
+name = { en = "Old update logs", fr = "Anciens journaux de mise à jour" }
+explain = { en = "Logs Windows rotated out after its updates. Sometimes several gigabytes.", fr = "Les journaux que Windows a archivés après ses mises à jour. Parfois plusieurs gigaoctets." }
+paths = [
+  '%WINDIR%\Logs\CBS\CbsPersist_*.cab',
+  '%WINDIR%\Logs\CBS\CbsPersist_*.log',
+  '%WINDIR%\Logs\WindowsUpdate\*.etl',
+]
+admin = true
+
+[[rule]]
+id = "system.windows.memory_dumps"
+category = "system"
+risk = "review"
+group = { en = "Windows", fr = "Windows" }
+name = { en = "Blue screen dumps", fr = "Dumps d'écran bleu" }
+explain = { en = "What Windows saved after a blue screen. Only worth keeping while you look for its cause.", fr = "Ce que Windows a enregistré après un écran bleu. Utile seulement tant que tu en cherches la cause." }
+paths = ['%WINDIR%\MEMORY.DMP', '%WINDIR%\Minidump']
+admin = true
+
+[[rule]]
+id = "system.windows.recycle_bin"
+category = "system"
+risk = "review"
+group = { en = "Windows", fr = "Windows" }
+name = { en = "Recycle Bin", fr = "Corbeille" }
+explain = { en = "What you already deleted. Emptied for good: it does not go through the Reserve.", fr = "Ce que tu as déjà supprimé. Vidée pour de bon : elle ne passe pas par la Réserve." }
+special = "recycle_bin"

@@ -1,0 +1,256 @@
+/* Skrap — direction Acide. Black, acid green, everything slanted and moving left to right.
+   The tokens follow skrap-logo/05-charte (colors, fonts, motion). */
+
+@font-face {
+  font-family: 'Inter Display';
+  src: url('/fonts/InterDisplay-BlackItalic.woff2') format('woff2');
+  font-weight: 900;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: block;
+}
+
+:root {
+  /* Surfaces, from the page up. */
+  --noir: #0b0b0c;
+  --noir-2: #0f0f11;
+  --carbone: #17171a;
+  --carbone-2: #1c1c20;
+  --carbone-3: #25252a;
+  --trait: #1f1f23;
+  --trait-fort: #2c2c32;
+
+  /* Text. */
+  --os: #f2f2ec;
+  --os-2: #c4c4bf;
+  --gris: #8c8c93;
+  --gris-2: #5e5e65;
+
+  /* Accents. Acid is action and "Safe"; amber "Review"; magenta "Expert", rare, never to scare. */
+  --acide: #d6ff3d;
+  --acide-doux: rgb(214 255 61 / 0.1);
+  --acide-ligne: rgb(214 255 61 / 0.4);
+  --sur-acide: #0b0b0c;
+  --ambre: #ffb020;
+  --ambre-doux: rgb(255 176 32 / 0.12);
+  --magenta: #ff3d8b;
+
+  --font-titre: 'Inter Display', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-texte: 'Inter', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+
+  /* The logo's angle: trails, underlines and the scan line lean like it. */
+  --penche: -12deg;
+  --rayon-sm: 7px;
+  --rayon: 10px;
+  --rayon-lg: 14px;
+
+  /* Motion: micro 120-180 ms, transitions 240-320 ms, big moments 800-1,200 ms. */
+  --micro: 150ms;
+  --transition: 280ms;
+  --fort: 1000ms;
+  --entree: cubic-bezier(0.16, 1, 0.3, 1);
+  --sortie: cubic-bezier(0.7, 0, 0.84, 0);
+
+  --ombre: 0 0 0 1px var(--trait-fort), 0 28px 70px -24px rgb(0 0 0 / 0.9);
+  --titlebar: 40px;
+  --sidebar: 224px;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--noir);
+  color: var(--os);
+  font-family: var(--font-texte);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+button:disabled {
+  cursor: default;
+}
+
+a {
+  color: inherit;
+}
+
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid var(--acide);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--acide-ligne);
+}
+
+/* Titles and big numbers: Inter Display Black Italic. */
+.titre {
+  font-family: var(--font-titre);
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+}
+
+/* Fixed-width digits, so counters never jump. */
+.chiffres {
+  font-variant-numeric: tabular-nums;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gris);
+}
+
+/* Buttons ----------------------------------------------------------------------------- */
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: var(--rayon-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background var(--micro),
+    color var(--micro),
+    opacity var(--micro),
+    transform var(--micro) var(--entree);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.btn:disabled {
+  opacity: 0.4;
+}
+
+.btn-ghost {
+  color: var(--os-2);
+  background: rgb(255 255 255 / 0.05);
+}
+.btn-ghost:hover:not(:disabled) {
+  color: var(--os);
+  background: rgb(255 255 255 / 0.09);
+}
+
+.btn-line {
+  color: var(--acide);
+  box-shadow: inset 0 0 0 1px var(--acide-ligne);
+}
+.btn-line:hover:not(:disabled) {
+  background: var(--acide-doux);
+}
+
+/* The main action: acid, slanted type, a glint crossing it on hover. */
+.btn-primary {
+  overflow: hidden;
+  color: var(--sur-acide);
+  background: var(--acide);
+  font-family: var(--font-titre);
+  font-weight: 900;
+  font-style: italic;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.6) 50%, transparent 70%);
+  transform: translateX(-130%);
+  pointer-events: none;
+}
+.btn-primary:hover:not(:disabled)::after {
+  transform: translateX(130%);
+  transition: transform 700ms var(--entree);
+}
+
+/* Scrollbars ---------------------------------------------------------------------------- */
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.08);
+  border-radius: 12px;
+  border: 4px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(255 255 255 / 0.15);
+}
+
+/* With Windows' animations off (or "Reduced" in the settings): simple fades only. */
+html[data-motion='reduced'] *,
+html[data-motion='reduced'] *::before,
+html[data-motion='reduced'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-motion='auto'] *,
+  html[data-motion='auto'] *::before,
+  html[data-motion='auto'] *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+  }
+}

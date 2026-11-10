@@ -5,11 +5,14 @@
 //! the system disk, Skrap's local app data folder; on the others, a hidden `.skrap-reserve`
 //! folder at the root. Each clean is a batch: `<store>/<id>/batch.json` (when), `items.jsonl`
 //! (one line per file: where it came from), and `files/` (the files, numbered). The line is
-//! written before the file is moved, so a crash never leaves a file nobody knows the origin of.
+//! written before the file is moved, so a crash never leaves a file nobody knows the origin of;
+//! the small JSON files are written through a temporary file, so a crash never leaves half of
+//! one. Putting files back only ever removes what went back: a file the list does not account
+//! for stays where it is.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs::{self, File, OpenOptions};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader, ErrorKind, Write};
 use std::path::{Component, Path, PathBuf, Prefix};
 
 use serde::{Deserialize, Serialize};
@@ -76,6 +79,11 @@ impl Reserve {
         &self.home
     }
 
+    /// Every Reserve folder, on every disk. No scan ever goes in.
+    pub fn store_dirs(&self) -> Vec<PathBuf> {
+        self.stores()
+    }
+
     /// Starts a batch. Nothing is written until the first file comes in.
     pub fn deposit(&self, created: u64) -> Deposit<'_> {
         let mut id = created.to_string();
@@ -93,58 +101,31 @@ impl Reserve {
 
     /// Every batch, newest first.
     pub fn list(&self) -> Vec<BatchSummary> {
-        let mut batches: BTreeMap<String, BatchSummary> = BTreeMap::new();
-        let mut rules: HashMap<String, BTreeSet<String>> = HashMap::new();
-        for part in self.parts() {
-            let summary = batches
-                .entry(part.info.id.clone())
-                .or_insert_with(|| BatchSummary {
-                    id: part.info.id.clone(),
-                    created: part.info.created,
-                    bytes: 0,
-                    files: 0,
-                    rules: Vec::new(),
-                });
-            let names = rules.entry(part.info.id.clone()).or_default();
-            for entry in read_items(&part.dir) {
-                if part.dir.join(FILES).join(&entry.stored).exists() {
-                    summary.bytes += entry.size;
-                    summary.files += 1;
-                    names.insert(entry.rule);
-                }
-            }
-        }
-        let mut list: Vec<BatchSummary> = batches
-            .into_values()
-            .map(|mut summary| {
-                summary.rules = rules
-                    .remove(&summary.id)
-                    .unwrap_or_default()
-                    .into_iter()
-                    .collect();
-                summary
-            })
-            .filter(|summary| summary.files > 0)
-            .collect();
-        list.sort_by(|a, b| b.created.cmp(&a.created).then(b.id.cmp(&a.id)));
-        list
+        summarize(self.parts())
+    }
+
+    /// The batches' parts on the system disk only, newest first: freeing them is what gives
+    /// that disk space back.
+    pub fn home_list(&self) -> Vec<BatchSummary> {
+        summarize(
+            self.parts()
+                .into_iter()
+                .filter(|p| self.is_home(p))
+                .collect(),
+        )
     }
 
     /// The files of a batch, where they came from.
     pub fn entries(&self, id: &str) -> Vec<Entry> {
         self.parts()
-            .into_iter()
+            .iter()
             .filter(|part| part.info.id == id)
-            .flat_map(|part| {
-                read_items(&part.dir)
-                    .into_iter()
-                    .filter(move |e| part.dir.join(FILES).join(&e.stored).exists())
-            })
+            .flat_map(present)
             .collect()
     }
 
     /// Puts a batch's files back where they were (`only`: just these originals). A file whose
-    /// place is taken again stays in the Reserve.
+    /// place is taken stays in the Reserve; nothing already there is ever replaced.
     pub fn restore(&self, id: &str, only: Option<&[PathBuf]>) -> RestoreReport {
         let mut report = RestoreReport::default();
         for part in self.parts().into_iter().filter(|p| p.info.id == id) {
@@ -169,8 +150,12 @@ impl Reserve {
                     }
                 }
             }
-            if kept.is_empty() {
-                let _ = fs::remove_dir_all(&part.dir);
+            // The batch's folder goes only once its `files/` is empty: a file the list does not
+            // account for (a damaged line) is never deleted by putting the others back.
+            if kept.is_empty() && fs::remove_dir(part.dir.join(FILES)).is_ok() {
+                let _ = fs::remove_file(part.dir.join(ITEMS));
+                let _ = fs::remove_file(part.dir.join(BATCH));
+                let _ = fs::remove_dir(&part.dir);
             } else {
                 let _ = write_items(&part.dir, &kept);
             }
@@ -178,13 +163,22 @@ impl Reserve {
         report
     }
 
-    /// Frees a batch for good. Returns the bytes freed.
+    /// Frees a batch for good, on every disk. Returns the bytes freed.
     pub fn purge(&self, id: &str) -> u64 {
-        let freed = self.entries(id).iter().map(|e| e.size).sum();
-        for part in self.parts().into_iter().filter(|p| p.info.id == id) {
-            let _ = fs::remove_dir_all(&part.dir);
-        }
-        freed
+        self.parts()
+            .iter()
+            .filter(|part| part.info.id == id)
+            .map(remove_part)
+            .sum()
+    }
+
+    /// Frees, for good, a batch's part on the system disk only. Returns the bytes freed.
+    pub fn purge_home(&self, id: &str) -> u64 {
+        self.parts()
+            .iter()
+            .filter(|part| part.info.id == id && self.is_home(part))
+            .map(remove_part)
+            .sum()
     }
 
     /// Frees the batches created before `before` (Unix ms). Returns the bytes freed.
@@ -200,15 +194,25 @@ impl Reserve {
         self.list().iter().map(|batch| self.purge(&batch.id)).sum()
     }
 
+    fn is_home(&self, part: &Part) -> bool {
+        part.dir.parent() == Some(self.home.as_path())
+    }
+
     /// The Reserve folders in use: the home one and those on other disks.
     fn stores(&self) -> Vec<PathBuf> {
         let mut stores = vec![self.home.clone()];
-        if let Ok(text) = fs::read_to_string(self.home.join(STORES))
-            && let Ok(more) = serde_json::from_str::<Vec<PathBuf>>(&text)
-        {
-            stores.extend(more);
-        }
+        stores.extend(self.other_stores().unwrap_or_default());
         stores
+    }
+
+    /// The Reserve folders on other disks, `None` when their list cannot be read (then no new
+    /// one is made, rather than writing a list that would lose track of the others).
+    fn other_stores(&self) -> Option<Vec<PathBuf>> {
+        match fs::read_to_string(self.home.join(STORES)) {
+            Ok(text) => serde_json::from_str(&text).ok(),
+            Err(err) if err.kind() == ErrorKind::NotFound => Some(Vec::new()),
+            Err(_) => None,
+        }
     }
 
     fn parts(&self) -> Vec<Part> {
@@ -218,11 +222,26 @@ impl Reserve {
                 continue;
             };
             for entry in entries.flatten() {
-                let dir = entry.path();
-                let Ok(text) = fs::read_to_string(dir.join(BATCH)) else {
+                if !entry.file_type().is_ok_and(|t| t.is_dir()) {
                     continue;
-                };
-                if let Ok(info) = serde_json::from_str::<BatchInfo>(&text) {
+                }
+                let dir = entry.path();
+                let info = fs::read_to_string(dir.join(BATCH))
+                    .ok()
+                    .and_then(|text| serde_json::from_str::<BatchInfo>(&text).ok())
+                    // Its own description is unreadable but its list is there: the folder's
+                    // name is the id and its date the batch's.
+                    .or_else(|| {
+                        dir.join(ITEMS).is_file().then(|| BatchInfo {
+                            id: entry.file_name().to_string_lossy().into_owned(),
+                            created: entry
+                                .metadata()
+                                .ok()
+                                .and_then(|m| fsx::modified_ms(&m))
+                                .unwrap_or(0),
+                        })
+                    });
+                if let Some(info) = info {
                     parts.push(Part { dir, info });
                 }
             }
@@ -230,23 +249,23 @@ impl Reserve {
         parts
     }
 
-    /// The Reserve folder for a file on `volume`, created if needed.
+    /// The Reserve folder for a file, on its own disk, created if needed.
     fn store_for(&self, path: &Path) -> Option<PathBuf> {
-        let volume = volume(path)?;
-        if volume_of_home(&self.home).as_deref() == Some(volume.as_str()) {
+        let disk = volume(path)?;
+        if volume(&self.home).as_deref() == Some(disk.as_str()) {
             return Some(self.home.clone());
         }
-        let store = PathBuf::from(format!("{volume}\\")).join(DISK_DIR);
+        let mut known = self.other_stores()?;
+        let store = PathBuf::from(format!("{disk}\\")).join(DISK_DIR);
         if !store.is_dir() {
             fs::create_dir_all(&store).ok()?;
             (self.hide)(&store);
         }
-        let mut known: Vec<PathBuf> = self.stores().into_iter().skip(1).collect();
         if !known.contains(&store) {
             known.push(store.clone());
             fs::create_dir_all(&self.home).ok()?;
             let json = serde_json::to_vec_pretty(&known).ok()?;
-            fs::write(self.home.join(STORES), json).ok()?;
+            fsx::write_atomic(&self.home.join(STORES), &json).ok()?;
         }
         Some(store)
     }
@@ -255,6 +274,62 @@ impl Reserve {
 struct Part {
     dir: PathBuf,
     info: BatchInfo,
+}
+
+/// Batches as the app shows them, from their parts on every disk, newest first. A batch with
+/// no file left is not one.
+fn summarize(parts: Vec<Part>) -> Vec<BatchSummary> {
+    let mut batches: BTreeMap<String, BatchSummary> = BTreeMap::new();
+    let mut rules: HashMap<String, BTreeSet<String>> = HashMap::new();
+    for part in &parts {
+        let summary = batches
+            .entry(part.info.id.clone())
+            .or_insert_with(|| BatchSummary {
+                id: part.info.id.clone(),
+                created: part.info.created,
+                bytes: 0,
+                files: 0,
+                rules: Vec::new(),
+            });
+        let names = rules.entry(part.info.id.clone()).or_default();
+        for entry in present(part) {
+            summary.bytes += entry.size;
+            summary.files += 1;
+            names.insert(entry.rule);
+        }
+    }
+    let mut list: Vec<BatchSummary> = batches
+        .into_values()
+        .map(|mut summary| {
+            summary.rules = rules
+                .remove(&summary.id)
+                .unwrap_or_default()
+                .into_iter()
+                .collect();
+            summary
+        })
+        .filter(|summary| summary.files > 0)
+        .collect();
+    list.sort_by(|a, b| b.created.cmp(&a.created).then(b.id.cmp(&a.id)));
+    list
+}
+
+/// A part's files that are really in the Reserve.
+fn present(part: &Part) -> Vec<Entry> {
+    read_items(&part.dir)
+        .into_iter()
+        .filter(|e| part.dir.join(FILES).join(&e.stored).exists())
+        .collect()
+}
+
+/// Deletes a part with its files. Returns the bytes it held, or 0 when it could not go whole.
+fn remove_part(part: &Part) -> u64 {
+    let bytes = present(part).iter().map(|e| e.size).sum();
+    if fs::remove_dir_all(&part.dir).is_ok() {
+        bytes
+    } else {
+        0
+    }
 }
 
 /// A batch being filled by a clean.
@@ -301,12 +376,15 @@ impl Deposit<'_> {
         fs::rename(path, part.dir.join(FILES).join(stored)).map_err(|e| fsx::classify(&e))
     }
 
-    fn open(&self, store: &Path) -> std::io::Result<OpenPart> {
+    /// The batch's folder in a Reserve folder: always a new one, never written into twice.
+    fn open(&self, store: &Path) -> io::Result<OpenPart> {
+        fs::create_dir_all(store)?;
         let dir = store.join(&self.info.id);
-        fs::create_dir_all(dir.join(FILES))?;
-        fs::write(dir.join(BATCH), serde_json::to_vec_pretty(&self.info)?)?;
+        fs::create_dir(&dir)?;
+        fs::create_dir(dir.join(FILES))?;
+        fsx::write_atomic(&dir.join(BATCH), &serde_json::to_vec_pretty(&self.info)?)?;
         let items = OpenOptions::new()
-            .create(true)
+            .create_new(true)
             .append(true)
             .open(dir.join(ITEMS))?;
         Ok(OpenPart {
@@ -333,17 +411,17 @@ fn read_items(dir: &Path) -> Vec<Entry> {
         .collect()
 }
 
-fn write_items(dir: &Path, items: &[Entry]) -> std::io::Result<()> {
+fn write_items(dir: &Path, items: &[Entry]) -> io::Result<()> {
     let mut text = Vec::new();
     for item in items {
         serde_json::to_writer(&mut text, item)?;
         text.push(b'\n');
     }
-    let tmp = dir.join(format!("{ITEMS}.tmp"));
-    fs::write(&tmp, text)?;
-    fs::rename(tmp, dir.join(ITEMS))
+    fsx::write_atomic(&dir.join(ITEMS), &text)
 }
 
+/// Moves a file back to its place, which must be free: the name is taken first (a file that
+/// appears there meanwhile makes this fail), then the file replaces that empty placeholder.
 fn put_back(stored: &Path, original: &Path) -> Result<(), FailReason> {
     if fs::symlink_metadata(original).is_ok() {
         return Err(FailReason::Exists);
@@ -351,7 +429,14 @@ fn put_back(stored: &Path, original: &Path) -> Result<(), FailReason> {
     if let Some(parent) = original.parent() {
         fs::create_dir_all(parent).map_err(|e| fsx::classify(&e))?;
     }
-    fs::rename(stored, original).map_err(|e| fsx::classify(&e))
+    File::create_new(original).map_err(|e| match e.kind() {
+        ErrorKind::AlreadyExists => FailReason::Exists,
+        _ => fsx::classify(&e),
+    })?;
+    fs::rename(stored, original).map_err(|e| {
+        let _ = fs::remove_file(original);
+        fsx::classify(&e)
+    })
 }
 
 /// `C:` for a path on drive C, `None` for a network share.
@@ -366,10 +451,6 @@ fn volume(path: &Path) -> Option<String> {
         Some(Component::RootDir) if cfg!(not(windows)) => Some(String::new()),
         _ => None,
     }
-}
-
-fn volume_of_home(home: &Path) -> Option<String> {
-    volume(home)
 }
 
 #[cfg(test)]
@@ -468,6 +549,68 @@ mod tests {
         }
         assert_ne!(ids[0], ids[1]);
         assert_eq!(reserve.list().len(), 2);
+    }
+
+    #[test]
+    fn putting_back_never_deletes_what_the_list_does_not_account_for() {
+        let (_dir, reserve, data) = setup();
+        let mut deposit = reserve.deposit(5);
+        for n in 0..3 {
+            let file = data.join(format!("{n}.tmp"));
+            fs::write(&file, "x").unwrap();
+            deposit.put(&file, 1, "r.x").unwrap();
+        }
+        let id = deposit.finish().unwrap();
+        // Damage the second line of the list (a power cut, a bad disk).
+        let items = reserve.home().join(&id).join(ITEMS);
+        let text = fs::read_to_string(&items).unwrap();
+        let lines: Vec<&str> = text.lines().collect();
+        fs::write(
+            &items,
+            format!(
+                "{}
+{{broken
+{}
+",
+                lines[0], lines[2]
+            ),
+        )
+        .unwrap();
+
+        let report = reserve.restore(&id, None);
+        assert_eq!(report.files, 2);
+        assert!(data.join("0.tmp").exists() && data.join("2.tmp").exists());
+        // The file the list lost track of is still in the Reserve, not deleted.
+        assert!(reserve.home().join(&id).join(FILES).join("1").exists());
+    }
+
+    #[test]
+    fn a_batch_whose_description_is_lost_is_still_listed() {
+        let (_dir, reserve, data) = setup();
+        let file = data.join("a.tmp");
+        fs::write(&file, "abc").unwrap();
+        let mut deposit = reserve.deposit(9);
+        deposit.put(&file, 3, "r.x").unwrap();
+        let id = deposit.finish().unwrap();
+        fs::write(reserve.home().join(&id).join(BATCH), "{torn").unwrap();
+        let list = reserve.list();
+        assert_eq!(list.len(), 1);
+        assert_eq!((list[0].id.as_str(), list[0].bytes), (id.as_str(), 3));
+        assert_eq!(reserve.restore(&id, None).files, 1);
+    }
+
+    #[test]
+    fn the_system_disk_part_is_listed_and_freed_on_its_own() {
+        let (_dir, reserve, data) = setup();
+        let file = data.join("a.tmp");
+        fs::write(&file, "abcd").unwrap();
+        let mut deposit = reserve.deposit(1);
+        deposit.put(&file, 4, "r.x").unwrap();
+        let id = deposit.finish().unwrap();
+        assert_eq!(reserve.home_list().len(), 1);
+        assert_eq!(reserve.purge_home(&id), 4);
+        assert!(reserve.list().is_empty());
+        assert!(reserve.store_dirs().contains(&reserve.home().to_path_buf()));
     }
 
     #[test]

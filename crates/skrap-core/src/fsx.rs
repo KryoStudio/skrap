@@ -72,6 +72,15 @@ pub fn classify(err: &io::Error) -> FailReason {
     }
 }
 
+/// Writes a file through a temporary one and a rename, so a crash never leaves half of it.
+pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let mut name = path.file_name().unwrap_or_default().to_os_string();
+    name.push(".tmp");
+    let tmp = path.with_file_name(name);
+    fs::write(&tmp, bytes)?;
+    fs::rename(&tmp, path)
+}
+
 /// Deletes a file, clearing its read-only flag if that is what stands in the way.
 pub fn remove_file(path: &Path) -> io::Result<()> {
     match fs::remove_file(path) {

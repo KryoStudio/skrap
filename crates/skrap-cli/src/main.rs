@@ -10,10 +10,10 @@ const HELP: &str = "\
 skrap: the free, open-source PC cleaner (read-only command line)
 
 Usage:
-  skrap scan [--all] [--lang <code>]   what a scan finds; nothing is deleted
-  skrap rules [--lang <code>]          every built-in rule and its risk
-  skrap reserve                        what the Reserve holds
-  skrap --version
+  skrap-cli scan [--all] [--lang <code>]   what a scan finds; nothing is deleted
+  skrap-cli rules [--lang <code>]          every built-in rule and its risk
+  skrap-cli reserve                        what the Reserve holds
+  skrap-cli --version
 
 --all    also scans the rules that are unticked by default
 --lang   en or fr (default: en)";

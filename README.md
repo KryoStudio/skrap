@@ -58,7 +58,7 @@ The engine is a Rust workspace at the root of the repository:
 
 ```bash
 cargo test --workspace
-cargo run -p skrap-cli -- scan            # what a scan finds, nothing is deleted
+cargo run -p skrap-cli -- scan        # what a scan finds, nothing is deleted
 ```
 
 How it is put together: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). How cleaning rules are written: [`docs/RULES.md`](docs/RULES.md). How releases and in-app updates work: [`docs/RELEASING.md`](docs/RELEASING.md).

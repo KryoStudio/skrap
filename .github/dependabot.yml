@@ -1,0 +1,23 @@
+# Dependency updates come as pull requests, checked by CI like any other change.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      tauri:
+        patterns: ["tauri*"]
+  - package-ecosystem: npm
+    directory: /app
+    schedule:
+      interval: monthly
+    groups:
+      tauri:
+        patterns: ["@tauri-apps/*"]
+      svelte:
+        patterns: ["svelte*", "@sveltejs/*"]

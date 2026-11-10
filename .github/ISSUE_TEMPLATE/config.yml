@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Skrap touched a file it should not have
+    url: https://github.com/KryoStudio/skrap/security/advisories/new
+    about: Report it privately, it is fixed first.

@@ -1,0 +1,30 @@
+name: Cleaning rule
+description: Suggest something Skrap could clean (an app's cache, a game's logs...).
+labels: [rule]
+body:
+  - type: input
+    id: app
+    attributes:
+      label: App or game
+      placeholder: "Battle.net"
+    validations:
+      required: true
+  - type: textarea
+    id: where
+    attributes:
+      label: Where it is and what is inside
+      description: The folder (with %LOCALAPPDATA%, %APPDATA%... rather than your user name), its usual size, and what the files are.
+    validations:
+      required: true
+  - type: textarea
+    id: after
+    attributes:
+      label: Once it is gone
+      description: Does the app rebuild it on its own? Do you stay signed in? Does anything get slower the first time?
+    validations:
+      required: true
+  - type: input
+    id: tested
+    attributes:
+      label: Tested on
+      placeholder: "App version, Windows 11, French"

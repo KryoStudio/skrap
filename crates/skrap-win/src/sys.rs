@@ -225,3 +225,17 @@ pub fn user_registry_string(key: &str, value: &str) -> Option<String> {
     let len = buffer.iter().position(|&c| c == 0).unwrap_or(buffer.len());
     Some(String::from_utf16_lossy(&buffer[..len]))
 }
+
+/// Sends standard error to `file` when the process has none (the installed app has no console).
+pub fn stderr_to(file: std::fs::File) -> bool {
+    use std::os::windows::io::IntoRawHandle;
+    use windows::Win32::System::Console::{GetStdHandle, STD_ERROR_HANDLE, SetStdHandle};
+
+    // SAFETY: reads this process's standard error handle.
+    if unsafe { GetStdHandle(STD_ERROR_HANDLE) }.is_ok_and(|h| !h.is_invalid()) {
+        return false;
+    }
+    // SAFETY: a file handle that stays open (never closed) as standard error for the rest of the
+    // process; `eprintln!` looks it up on every write.
+    unsafe { SetStdHandle(STD_ERROR_HANDLE, HANDLE(file.into_raw_handle())) }.is_ok()
+}

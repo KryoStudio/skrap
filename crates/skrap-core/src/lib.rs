@@ -26,7 +26,7 @@ pub use progress::{Progress, ProgressSnapshot};
 pub use protect::Protected;
 pub use reserve::{BatchSummary, Reserve, RestoreReport};
 pub use rule::{Category, Risk, Rule, RuleError, RuleSet, Special};
-pub use scan::{Finding, Item, ScanReport, Skip, scan};
+pub use scan::{Finding, Item, ScanReport, Skip, scan, scan_with};
 pub use text::Text;
 
 /// What the engine needs to know about the machine it runs on.

@@ -280,3 +280,20 @@ mod tests {
         assert!(docs.iter().all(|d| ctx.protected.covers(d)));
     }
 }
+
+/// Started without a console (the installed app), what Skrap prints goes to `<dir>/skrap.log`,
+/// the previous run's kept as `skrap.old.log`. Never sent anywhere. Run from a terminal, it
+/// stays there.
+pub fn log_to_file(dir: &Path) {
+    #[cfg(windows)]
+    {
+        let _ = std::fs::create_dir_all(dir);
+        let path = dir.join("skrap.log");
+        let _ = std::fs::rename(&path, dir.join("skrap.old.log"));
+        if let Ok(file) = std::fs::File::create(&path) {
+            sys::stderr_to(file);
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = dir;
+}

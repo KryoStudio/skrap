@@ -72,15 +72,30 @@ pub fn scan(
     ctx: &Context,
     progress: &Progress,
 ) -> ScanReport {
+    scan_with(rules, wanted, ctx, progress, &|_| {})
+}
+
+/// [`scan`], calling `found` with each rule's finding as soon as it is ready (the app fills its
+/// categories as the scan goes).
+pub fn scan_with(
+    rules: &RuleSet,
+    wanted: &dyn Fn(&Rule) -> bool,
+    ctx: &Context,
+    progress: &Progress,
+    found: &(dyn Fn(&Finding) + Sync),
+) -> ScanReport {
     let started = std::time::Instant::now();
     let selected: Vec<&Rule> = rules.rules().iter().filter(|r| wanted(r)).collect();
     progress.start(selected.len());
     let findings: Vec<Finding> = selected
         .par_iter()
         .filter_map(|rule| {
-            let finding = scan_rule(rule, ctx, progress);
+            let finding = scan_rule(rule, ctx, progress).filter(|f| f.files > 0 || f.bytes > 0);
             progress.step_done();
-            finding.filter(|f| f.files > 0 || f.bytes > 0)
+            if let Some(finding) = &finding {
+                found(finding);
+            }
+            finding
         })
         .collect();
     ScanReport {

@@ -1,0 +1,21 @@
+[package]
+name = "skrap-core"
+description = "Skrap's cleaning engine: rules, scan, clean, the Reserve and protected folders."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+rayon.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

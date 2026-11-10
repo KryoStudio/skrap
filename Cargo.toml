@@ -1,0 +1,38 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+default-members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+authors = ["Kryo Studio"]
+repository = "https://github.com/KryoStudio/skrap"
+
+[workspace.dependencies]
+skrap-core = { path = "crates/skrap-core" }
+skrap-rules = { path = "crates/skrap-rules" }
+skrap-win = { path = "crates/skrap-win" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "1.2"
+rayon = "1.12"
+thiserror = "2"
+tempfile = "3.27"
+# Same version as Tauri's own.
+windows = "0.62"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

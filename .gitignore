@@ -1,0 +1,15 @@
+.DS_Store
+Thumbs.db
+node_modules
+/target
+/app/build
+/app/.svelte-kit
+/app/src-tauri/gen/schemas
+.env
+.env.*
+!.env.example
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+# Update signing keys never enter the repository (see docs/RELEASING.md).
+*.key
+*.key.pub

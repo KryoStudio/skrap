@@ -1,0 +1,20 @@
+[package]
+name = "skrap-cli"
+description = "Skrap on the command line: the same engine as the app."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "skrap"
+path = "src/main.rs"
+
+[dependencies]
+skrap-core.workspace = true
+skrap-rules.workspace = true
+skrap-win.workspace = true
+
+[lints]
+workspace = true
